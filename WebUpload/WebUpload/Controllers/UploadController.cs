@@ -90,72 +90,74 @@ namespace WebUpload.Controllers
             }
         }
 
-        /// <summary>
+             /// <summary>
         /// 文件分块上传
         /// </summary>
         /// <param name="file">文件</param>
         /// <param name="chunk">当前分片在上传分片中的顺序（从0开始）</param>
+        /// <param name="chunks">最大片数</param>
         /// <returns></returns>
-        public JsonResult ChunkUpload(IFormFile file, int chunk = 0)
+        public JsonResult ChunkUpload2(IFormFile file, int? chunk, int chunks = 0)
         {
             try
             {
-                var md5Folder = getFileMD5Folder(Request.Form["md5"]);            
+                var jsucess = JResult.Success();
+                var md5Folder = getFileMD5Folder(Request.Form["md5"]);
+                string filePath = "";  // 要保存的文件路径
 
-                // 存在分片参数
-                if (Request.Form.Keys.Any(t => t == "chunk"))
+                // 存在分片参数,并且，最大的片数大于1片时     
+                if (chunk.HasValue && chunks > 1)
                 {
-                    var webAppUpNumsOfLoop = 10;
+                    var uploadNumsOfLoop = 10;
                     // 是10的倍数就休眠几秒（数据库设置的秒数）
-                    if (chunk % webAppUpNumsOfLoop == 0)
+                    if (chunk % uploadNumsOfLoop == 0)
                     {
-                        var webAppUpPauseTimesOfLoop = 10;   //可从数据库取值
-                        Thread.Sleep(webAppUpPauseTimesOfLoop);
+                        var timesOfLoop = 10;   //休眠毫秒,可从数据库取值
+                        Thread.Sleep(timesOfLoop);
                     }
-
                     //建立临时传输文件夹
                     if (!Directory.Exists(md5Folder))
                     {
                         Directory.CreateDirectory(md5Folder);
                     }
 
-                    var chunkFilePath = md5Folder + "/" + chunk;                
-
-                    if (file != null)
-                    {
-                        using (var addFile = new FileStream(chunkFilePath, FileMode.OpenOrCreate))
-                        {
-                            file.CopyTo(addFile);
-                        }                      
-                    }
-                    else
-                    {
-                        byte[] byts = new byte[Request.Body.Length];
-                        Request.Body.Read(byts, 0, byts.Length);
-                        var createChunkFile = System.IO.File.Create(chunkFilePath);
-                        createChunkFile.Write(byts, 0, byts.Length);
-                        createChunkFile.Close();
-                    }
-                    var jsucess = JResult.Success();
+                   filePath = md5Folder + "/" + chunk;
                     jsucess.Code = chunk;
-                    // 当前片数等于总片数时，则返回切片完成的标识
-                    var chunks = Convert.ToInt32(Request.Form["chunks"]);
                     if ((chunks - 1) == chunk)
                     {
                         jsucess.Message = "chunked";
-                    }
-                    return Json(jsucess);
+                    }                 
                 }
                 else
                 {
+                    var fileName = file?.FileName ?? Request.Form["filename"];
+                    if (string.IsNullOrEmpty(fileName))
+                    {
+                        fileName = Request.QueryString.Get("filename");
+                    }
+
                     //没有分片直接保存
-                    string path = md5Folder + Path.GetExtension(file.FileName);
-                    using (var addFile = new FileStream(path, FileMode.OpenOrCreate))
+                    var path = md5Folder + Path.GetExtension(fileName);
+                    jsucess.Message = "chunked";
+                }
+
+                if (file != null)
+                {
+                    using (var addFile = new FileStream(filePath, FileMode.OpenOrCreate))
                     {
                         file.CopyTo(addFile);
-                    }            
-                    return Json(JResult.Success("chunked"));
+                    }
                 }
+                else
+                {
+                    byte[] byts = new byte[Request.Body.Length];
+                    Request.Body.Read(byts, 0, byts.Length);
+                    var createChunkFile = System.IO.File.Create(chunkFilePath);
+                    createChunkFile.Write(byts, 0, byts.Length);
+                    createChunkFile.Close();
+                }
+
+                return Json(jsucess);
             }
             catch (Exception ex)
             {
