@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Index";
 }
 
@@ -31,6 +31,9 @@
                     // 遍历files中的文件, 过滤掉不满足规则的。
                 },
                 beforeSend: function (block) {
+
+                    block.chunk = parseInt(block.chunk) + 1; // 从1开始上传
+
                     // 开始的块数（片数）
                     var startChunk = 0;
                     var currentFile = block.file;
@@ -74,6 +77,7 @@
             duplicate: true,   // 可重复上传同一文件
             threads: 1, //上传并发数
             fileNumLimit: 300,
+            sendAsBinary: false,
             compress: false, //图片在上传前不进行压缩
             fileSizeLimit: 1024 * 1024 * 1024,    // 1024 M
             fileSingleSizeLimit: 1024 * 1024 * 1024    // 1024 M
@@ -103,12 +107,12 @@
                         if (response.code == "0") {
                             if (response.data && parseInt(response.data) > 1) {
                                 //片信息加入到全局对象中
-                                FileBlock.push({ id: file.id, md5: val, size: file.size, ext: file.ext, chunk: response.Data });
+                                FileBlock.push({ id: file.id, md5: val, size: file.size, ext: file.ext, chunk: response.data });
                             }
 
                             uploader.upload(file);  // 那个文件先md5 好，就先上传
                         } else {
-                            console.log("%c 检测切片," + file.name + "," + response.Message, 'color: red');
+                            console.log("%c 检测切片," + file.name + "," + response.message, 'color: red');
                         }
                     }
                 });
@@ -131,7 +135,7 @@
         // 当某个文件上传到服务端响应后，会派送此事件来询问服务端响应是否有效
         uploader.on('uploadAccept', function (object, response) {
             if (response.Code == "-1") {
-                console.log("%c 服务器返回," + object.file.name + ",总计" + object.chunks + "片,第" + object.chunk + "片，" + response.Message, 'color: red');
+                console.log("%c 服务器返回," + object.file.name + ",总计" + object.chunks + "片,第" + object.chunk + "片，" + response.message, 'color: red');
             }
         });
 
@@ -147,8 +151,8 @@
                         async: false,
                         success: function (data) {
                             if (!data.result) {
-                                $("#fp_" + file.id).find("span").html("").html(data.Message);
-                                alert('%c 文件合并失败！' + file.name + "," + data.Message, 'color: red');
+                                $("#fp_" + file.id).find("span").html("").html(data.message);
+                                alert('%c 文件合并失败！' + file.name + "," + data.message, 'color: red');
                             } else {
                                 if (window.UploadSuccessCallback) {
                                     window.UploadSuccessCallback(file, md5, data);
