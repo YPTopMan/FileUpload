@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -58,7 +58,7 @@ namespace WebUpload.Controllers
                 var md5Folder = getFileMD5Folder(md5);
                 if (!Directory.Exists(md5Folder))
                 {
-                    DicCreate(md5Folder);               
+                    DicCreate(md5Folder);
                     return Json(result);
                 }
 
@@ -90,19 +90,20 @@ namespace WebUpload.Controllers
             }
         }
 
-             /// <summary>
+        /// <summary>
         /// 文件分块上传
         /// </summary>
         /// <param name="file">文件</param>
+        /// <param name="md5">文件md5 值</param>
         /// <param name="chunk">当前分片在上传分片中的顺序（从0开始）</param>
         /// <param name="chunks">最大片数</param>
         /// <returns></returns>
-        public JsonResult ChunkUpload2(IFormFile file, int? chunk, int chunks = 0)
+        public JsonResult ChunkUpload(IFormFile file, string md5, int? chunk, int chunks = 0)
         {
             try
             {
                 var jsucess = JResult.Success();
-                var md5Folder = getFileMD5Folder(Request.Form["md5"]);
+                var md5Folder = getFileMD5Folder(md5);
                 string filePath = "";  // 要保存的文件路径
 
                 // 存在分片参数,并且，最大的片数大于1片时     
@@ -121,40 +122,39 @@ namespace WebUpload.Controllers
                         Directory.CreateDirectory(md5Folder);
                     }
 
-                   filePath = md5Folder + "/" + chunk;
-                    jsucess.Code = chunk;
-                    if ((chunks - 1) == chunk)
+                    filePath = md5Folder + "/" + chunk;
+                    jsucess.Code = chunk.Value;
+                    if (chunks == chunk)
                     {
                         jsucess.Message = "chunked";
-                    }                 
+                    }
                 }
                 else
                 {
-                    var fileName = file?.FileName ?? Request.Form["filename"];
+                    var fileName = file?.FileName;
                     if (string.IsNullOrEmpty(fileName))
                     {
-                        fileName = Request.QueryString.Get("filename");
+                        var fileNameQuery = Request.Query.FirstOrDefault(t => t.Key == "name");
+                        fileName = fileNameQuery.Value.FirstOrDefault();
                     }
 
                     //没有分片直接保存
-                    var path = md5Folder + Path.GetExtension(fileName);
+                    filePath = md5Folder + Path.GetExtension(fileName);
                     jsucess.Message = "chunked";
                 }
 
-                if (file != null)
+
+                // 写入文件
+                using (var addFile = new FileStream(filePath, FileMode.OpenOrCreate))
                 {
-                    using (var addFile = new FileStream(filePath, FileMode.OpenOrCreate))
+                    if (file != null)
                     {
                         file.CopyTo(addFile);
                     }
-                }
-                else
-                {
-                    byte[] byts = new byte[Request.Body.Length];
-                    Request.Body.Read(byts, 0, byts.Length);
-                    var createChunkFile = System.IO.File.Create(chunkFilePath);
-                    createChunkFile.Write(byts, 0, byts.Length);
-                    createChunkFile.Close();
+                    else
+                    {
+                        Request.Body.CopyTo(addFile);
+                    }
                 }
 
                 return Json(jsucess);
@@ -209,8 +209,8 @@ namespace WebUpload.Controllers
         /// <returns></returns>
         private string GetPath()
         {
-            var webRootPath=_hostingEnvironment.WebRootPath;
-            return webRootPath+ "\\Files\\";
+            var webRootPath = _hostingEnvironment.WebRootPath;
+            return webRootPath + "\\Files\\";
         }
 
         /// <summary>
@@ -218,7 +218,7 @@ namespace WebUpload.Controllers
         /// </summary>
         /// <returns></returns>
         private string getFileMD5Folder(string identifier)
-        {          
+        {
             if (string.IsNullOrEmpty(identifier))
             {
                 throw new Exception("缺少文件MD5值");
@@ -310,16 +310,16 @@ namespace WebUpload.Controllers
             try
             {
                 if (streamTotalSize != fileTotalSize)
-                {                
-                    throw new Exception("[" + clientFileName + "]文件上传时发生损坏，请重新上传");                
-                }               
+                {
+                    throw new Exception("[" + clientFileName + "]文件上传时发生损坏，请重新上传");
+                }
 
                 // 对文件进行 MD5 唯一验证
                 var identifier = Request.Form["md5"];
                 var fileMD5 = GetMD5HashFromFile(targetPath);
                 if (!fileMD5.Equals(identifier))
-                {                  
-                    throw new Exception("[" + clientFileName + "],文件MD5值不对等");                  
+                {
+                    throw new Exception("[" + clientFileName + "],文件MD5值不对等");
                 }
                 return JResult.Success();
             }
@@ -329,7 +329,7 @@ namespace WebUpload.Controllers
                 System.IO.File.Delete(targetPath);
                 return JResult.Error(ex.Message);
             }
-         
+
         }
 
         /// <summary>
