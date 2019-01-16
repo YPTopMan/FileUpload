@@ -189,11 +189,11 @@ namespace WebUpload.Controllers
                 }
 
                 var vaild = VaildMergeFile(targetFilePath);
+                DeleteFolder(sourcePath);
                 if (!vaild.Result)
                 {
                     return Json(vaild);
-                }
-                DeleteFolder(sourcePath);
+                }              
                 var fileResult = OwnBusiness(targetFilePath);
                 return Json(JResult.Success());
             }
