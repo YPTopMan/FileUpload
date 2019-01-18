@@ -76,6 +76,31 @@ namespace WebUpload.Controllers
                 var chunk = files.Count();
                 if (chunk > 1)
                 {
+                 #region 计算切片中途是否有缺失
+                 /*   var returnMax = 0;
+                    var fileIntList = files.Select(x => Convert.ToInt32(x.Name)).OrderBy(x => x).ToList();
+                    if (fileIntList == null || fileIntList.Count == 0)
+                        return Json(JResult.Success(), JsonRequestBehavior.AllowGet);
+                    var maxFileInt = fileIntList.Max();
+                    var minFileInt = fileIntList.Min();
+                    if (minFileInt != 1)
+                        return Json(JResult.Success());
+                    foreach (var item in fileIntList)
+                    {
+                        var nextFile = item + 1;
+                        if (maxFileInt == nextFile)
+                        {
+                            returnMax = maxFileInt;
+                            break;
+                        }
+                        if (!fileIntList.Where(x => x == nextFile).Any())
+                        {
+                            returnMax = item;
+                            break;
+                        }
+                    }*/
+
+                    #endregion
                     //当文件上传中时，页面刷新，上传中断，这时最后一个保存的块的大小可能会有异常，所以这里直接删除最后一个块文件                  
                     result.Data = (chunk - 1);
                     return Json(result);
