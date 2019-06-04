@@ -2,11 +2,9 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 
 
@@ -55,7 +53,7 @@ namespace WebUpload.Controllers
                     DicCreate(userPath);
                 }
 
-                var md5Folder = getFileMD5Folder(md5);
+                var md5Folder = GetFileMd5Folder(md5);
                 if (!Directory.Exists(md5Folder))
                 {
                     DicCreate(md5Folder);
@@ -71,7 +69,7 @@ namespace WebUpload.Controllers
                     return Json(result);
                 }
 
-                DirectoryInfo dicInfo = new DirectoryInfo(md5Folder);
+                var dicInfo = new DirectoryInfo(md5Folder);
                 var files = dicInfo.GetFiles();
                 var chunk = files.Count();
                 if (chunk > 1)
@@ -127,9 +125,9 @@ namespace WebUpload.Controllers
         {
             try
             {
-                var jsucess = JResult.Success();
-                var md5Folder = getFileMD5Folder(md5);
-                string filePath = "";  // 要保存的文件路径
+                var result = JResult.Success();
+                var md5Folder = GetFileMd5Folder(md5);
+                var filePath = "";  // 要保存的文件路径
 
                 // 存在分片参数,并且，最大的片数大于1片时     
                 if (chunk.HasValue && chunks > 1)
@@ -148,10 +146,10 @@ namespace WebUpload.Controllers
                     }
 
                     filePath = md5Folder + "/" + chunk;
-                    jsucess.Code = chunk.Value;
+                    result.Code = chunk.Value;
                     if (chunks == chunk)
                     {
-                        jsucess.Message = "chunked";
+                        result.Message = "chunked";
                     }
                 }
                 else
@@ -165,9 +163,8 @@ namespace WebUpload.Controllers
 
                     //没有分片直接保存
                     filePath = md5Folder + Path.GetExtension(fileName);
-                    jsucess.Message = "chunked";
+                    result.Message = "chunked";
                 }
-
 
                 // 写入文件
                 using (var addFile = new FileStream(filePath, FileMode.OpenOrCreate))
@@ -182,7 +179,7 @@ namespace WebUpload.Controllers
                     }
                 }
 
-                return Json(jsucess);
+                return Json(result);
             }
             catch (Exception ex)
             {
@@ -199,7 +196,7 @@ namespace WebUpload.Controllers
             try
             {
                 //源数据文件夹
-                string sourcePath = getFileMD5Folder(md5);
+                string sourcePath = GetFileMd5Folder(md5);
                 //合并后的文件路径
                 string targetFilePath = sourcePath + Path.GetExtension(filename);
                 // 目标文件不存在，则需要合并
@@ -213,14 +210,14 @@ namespace WebUpload.Controllers
                     MergeDiskFile(sourcePath, targetFilePath);
                 }
 
-                var vaild = VaildMergeFile(targetFilePath);
+                var valid = VaildMergeFile(targetFilePath);
                 DeleteFolder(sourcePath);
-                if (!vaild.Result)
+                if (!valid.Result)
                 {
-                    return Json(vaild);
+                    return Json(valid);
                 }              
                 var fileResult = OwnBusiness(targetFilePath);
-                return Json(JResult.Success());
+                return Json(JResult.Success(fileResult));
             }
             catch (Exception ex)
             {
@@ -242,7 +239,7 @@ namespace WebUpload.Controllers
         /// 获得文件MD5文件夹
         /// </summary>
         /// <returns></returns>
-        private string getFileMD5Folder(string identifier)
+        private string GetFileMd5Folder(string identifier)
         {
             if (string.IsNullOrEmpty(identifier))
             {
@@ -250,10 +247,7 @@ namespace WebUpload.Controllers
             }
 
             string root = GetPath();
-
-            string md5Folder = "";
-            md5Folder = root + "ChunkTemp\\" + identifier;
-            return md5Folder;
+            return root + "ChunkTemp\\" + identifier;
         }
 
         /// <summary>
@@ -268,7 +262,7 @@ namespace WebUpload.Controllers
             BinaryWriter addWriter = null;
             try
             {
-                int streamTotalSize = 0;
+                var streamTotalSize = 0;
                 addFile = new FileStream(targetPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
                 //addFile = new FileStream(targetPath, FileMode.Append, FileAccess.Write);
                 addWriter = new BinaryWriter(addFile);
@@ -311,6 +305,7 @@ namespace WebUpload.Controllers
                     addWriter.Close();
                     addWriter.Dispose();
                 }
+
                 throw ex;
             }
         }
@@ -341,8 +336,8 @@ namespace WebUpload.Controllers
 
                 // 对文件进行 MD5 唯一验证
                 var identifier = Request.Form["md5"];
-                var fileMD5 = GetMD5HashFromFile(targetPath);
-                if (!fileMD5.Equals(identifier))
+                var fileMd5 = GetMD5HashFromFile(targetPath);
+                if (!fileMd5.Equals(identifier))
                 {
                     throw new Exception("[" + clientFileName + "],文件MD5值不对等");
                 }
@@ -429,9 +424,15 @@ namespace WebUpload.Controllers
         {
             var fileResult = JResult.Success();
 
+            var filePath = _hostingEnvironment.ContentRootPath + "\\Files\\";
+            if (!Directory.Exists(filePath))
+            {
+                DicCreate(filePath);
+            }
+
             // 移动文件            
             var file = new FileInfo(targetPath);
-            var newFilePath = _hostingEnvironment.ContentRootPath + "\\Files\\" + Request.Form["filename"];
+            var newFilePath = filePath + Request.Form["filename"];
             if (System.IO.File.Exists(newFilePath))
             {
                 System.IO.File.Delete(newFilePath);
@@ -449,9 +450,9 @@ namespace WebUpload.Controllers
         /// <param name="path"></param>
         private void DicCreate(string path)
         {
-            if (!System.IO.Directory.Exists(path))
+            if (!Directory.Exists(path))
             {
-                System.IO.Directory.CreateDirectory(path);
+                Directory.CreateDirectory(path);
             }
         }
 

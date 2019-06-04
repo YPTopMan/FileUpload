@@ -24,6 +24,17 @@ namespace WebUpload
             return result;
         }
 
+
+        public static CommResult Success(object resultData)
+        {
+            var result = new CommResult();
+            result.Result = true;
+            result.Code = 0;
+            result.Data = resultData;
+            return result;
+        }
+
+
         public static CommResult Success(string v)
         {
             var result = new CommResult();
